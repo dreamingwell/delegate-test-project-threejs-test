@@ -41,6 +41,11 @@ export class Engine {
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
 
+    // Running count of composer passes disposed across reset() calls, for
+    // leak audits: composer.passes.length should return to baseline after
+    // reset() while this counter keeps climbing across route changes.
+    this.disposedPasses = 0;
+
     // rAF handle. Publicly readable so tooling (e.g. leak audits) can check
     // whether the loop is running: non-null while start()'d, null after stop().
     this.rafId = null;
@@ -150,12 +155,18 @@ export class Engine {
     this.camera.zoom = 1;
     this.camera.updateProjectionMatrix();
 
-    // Clear composer passes and dispose its render targets explicitly.
+    // Dispose every composer pass (UnrealBloomPass and friends own their own
+    // render targets, materials and shaders) before dropping the references,
+    // then dispose the composer's own ping-pong render targets.
+    for (const pass of this.composer.passes) {
+      if (typeof pass.dispose === "function") {
+        pass.dispose();
+        this.disposedPasses++;
+      }
+    }
     this.composer.passes.length = 0;
     if (this.composer.renderTarget1) this.composer.renderTarget1.dispose();
     if (this.composer.renderTarget2) this.composer.renderTarget2.dispose();
-    this.composer.readBuffer = this.composer.renderTarget1;
-    this.composer.writeBuffer = this.composer.renderTarget2;
 
     // Recreate a fresh scene/camera pairing on the render pass so the next
     // demo's mount() starts from a clean composer with the same scene/camera
@@ -195,9 +206,14 @@ export class Engine {
     this.composer.addPass(pass);
   }
 
-  /** renderer.info.memory: { geometries, textures } */
+  /**
+   * { geometries, textures } from renderer.info.memory, plus engine-tracked
+   * counters useful for leak audits:
+   *   - disposedPasses: cumulative count of composer passes disposed across
+   *     all reset() calls so far.
+   */
   getMemoryStats() {
-    return this.renderer.info.memory;
+    return { ...this.renderer.info.memory, disposedPasses: this.disposedPasses };
   }
 
   _createHud() {
