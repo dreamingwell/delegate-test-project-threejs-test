@@ -6,18 +6,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
   :root { color-scheme: dark; }
-  body {
+  html, body {
     margin: 0;
-    min-height: 100vh;
+    height: 100%;
     background: radial-gradient(ellipse at top, #0c1330 0%, #05060f 60%, #000 100%);
     color: #e8f0ff;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #app { position: fixed; inset: 0; }
+  #gallery {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 6vh 5vw 4vh;
     box-sizing: border-box;
+    min-height: 100vh;
   }
+  #gallery.hidden { display: none; }
   h1 {
     font-size: clamp(1.8rem, 4vw, 2.6rem);
     margin: 0 0 0.25em;
@@ -51,31 +58,64 @@
   }
   a.card h2 { margin: 0 0 0.3em; font-size: 1.25rem; color: #dff0ff; }
   a.card p { margin: 0; color: #a6b8dc; font-size: 0.95rem; line-height: 1.4; }
-  .tag { display: inline-block; margin-top: 0.9em; font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; color: #7fd6a0; }
-  .card.placeholder {
-    border-style: dashed;
-    opacity: 0.6;
+  #back-link {
+    position: fixed;
+    top: 1em;
+    left: 1em;
+    z-index: 2;
+    color: #8fd0ff;
+    background: rgba(0,0,0,0.5);
+    padding: 0.4em 0.8em;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 0.9rem;
   }
-  .card.placeholder .tag { color: #c9a86a; }
+  #back-link.hidden { display: none; }
   footer { margin-top: 4em; color: #6b7ba0; font-size: 0.85rem; text-align: center; }
   footer a { color: #8fd0ff; }
 </style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.1/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.1/examples/jsm/"
+  }
+}
+</script>
 </head>
 <body>
-  <h1>Three.js Demos</h1>
-  <p class="sub">Small, self-contained WebGL demos built to test an AI agent team's ability to ship real, working software end-to-end — repo, GitHub Pages, and all.</p>
-  <div class="grid">
-    <a class="card" href="frontier-demo/index.html">
-      <h2>Stellar Drift</h2>
-      <p>A rotating spiral galaxy of 40k+ additively-blended particles with a glowing core, bloom post-processing, and orbit controls.</p>
-      <span class="tag">Frontier Dev · Claude Sonnet</span>
-    </a>
-    <a class="card placeholder" href="local-demo/index.html">
-      <h2>Coming soon</h2>
-      <p>A second demo is in progress, built by a different agent running a different (free, local) model.</p>
-      <span class="tag">Local Dev · Qwen3.8-27B (local)</span>
-    </a>
+  <a id="back-link" class="hidden" href="#">&larr; All demos</a>
+  <div id="app"></div>
+  <div id="gallery">
+    <h1>Three.js Demos</h1>
+    <p class="sub">Small, self-contained WebGL demos sharing one engine and one deep-linkable router — built to test an AI agent team's ability to ship real, working software end-to-end.</p>
+    <div class="grid" id="demo-grid"></div>
+    <footer>Built by the Threejs Lab agent team · <a href="https://github.com/dreamingwell/delegate-test-project-threejs-test">source on GitHub</a></footer>
   </div>
-  <footer>Built by the Threejs Lab agent team · <a href="https://github.com/dreamingwell/delegate-test-project-threejs-test">source on GitHub</a></footer>
+
+  <script type="module">
+    import { DEMOS } from "./engine/registry.js";
+
+    const grid = document.getElementById("demo-grid");
+    for (const demo of DEMOS) {
+      const a = document.createElement("a");
+      a.className = "card";
+      a.href = `#/demo/${demo.id}`;
+      a.innerHTML = `<h2>${demo.title}</h2><p>#/demo/${demo.id}</p>`;
+      grid.appendChild(a);
+    }
+
+    const gallery = document.getElementById("gallery");
+    const backLink = document.getElementById("back-link");
+
+    function syncGalleryVisibility() {
+      const onDemo = /^#\/demo\/[^/]+\/?$/.test(location.hash);
+      gallery.classList.toggle("hidden", onDemo);
+      backLink.classList.toggle("hidden", !onDemo);
+    }
+    addEventListener("hashchange", syncGalleryVisibility);
+    syncGalleryVisibility();
+  </script>
+  <script type="module" src="./app.js"></script>
 </body>
 </html>

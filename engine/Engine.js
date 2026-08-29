@@ -59,6 +59,10 @@ export class Engine {
     this._onResize = () => this._handleResize();
     this.addListener(window, "resize", this._onResize);
 
+    // Demo lifecycle state for load()/unload().
+    this._loadToken = 0;
+    this._currentDestroy = null;
+
     this._hudEnabled = !!hud;
     this._hudEl = null;
     this._hudAccum = 0;
@@ -252,5 +256,65 @@ export class Engine {
       this._hudEl.remove();
       this._hudEl = null;
     }
+  }
+
+  /**
+   * Demo contract used by the router (see router/router.js and
+   * engine/registry.js):
+   *
+   *   export function init(container) {
+   *     // container.engine is this shared Engine instance: use
+   *     // container.engine.scene / .camera / .renderer / .addListener /
+   *     // .addPass / .clock rather than creating a second renderer.
+   *     return { update, destroy };
+   *   }
+   *
+   * - update(delta, elapsed) is called once per animation frame while the
+   *   demo is active (delta/elapsed seconds, from the engine's clock).
+   * - destroy() must dispose everything the demo itself created and remove
+   *   any listeners it added directly (not via addListener). Engine.unload()
+   *   independently stops the loop, scrubs the scene/camera/composer, and
+   *   removes every listener registered via addListener() regardless of
+   *   whether destroy() does its job, so a demo cannot leak the shared
+   *   context even if its own destroy() is incomplete.
+   *
+   * Load a demo module by path. Unloads whatever is currently active first.
+   */
+  async load(modulePath) {
+    this.unload();
+    const myToken = ++this._loadToken;
+    const mod = await import(modulePath);
+    if (typeof mod.init !== "function") {
+      throw new Error(`Demo module "${modulePath}" does not export init(container)`);
+    }
+    if (myToken !== this._loadToken) return; // superseded by a newer load() while importing
+    this.container.engine = this;
+    const { update, destroy } = mod.init(this.container);
+    if (myToken !== this._loadToken) {
+      // A newer load() raced us while init() ran synchronously-but-late; tear
+      // down what we just created instead of leaving it live.
+      if (typeof destroy === "function") destroy();
+      return;
+    }
+    this._currentDestroy = typeof destroy === "function" ? destroy : null;
+    this.start((delta, elapsed) => {
+      if (typeof update === "function") update(delta, elapsed);
+    });
+  }
+
+  /**
+   * Unload whatever demo is active: stop the shared loop, call the demo's
+   * own destroy() (if any), then scrub the scene/camera/composer and remove
+   * every engine-tracked listener via reset(). Safe to call when nothing is
+   * loaded.
+   */
+  unload() {
+    this._loadToken = (this._loadToken || 0) + 1;
+    this.stop();
+    if (this._currentDestroy) {
+      this._currentDestroy();
+      this._currentDestroy = null;
+    }
+    this.reset();
   }
 }
