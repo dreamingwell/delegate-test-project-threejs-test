@@ -70,6 +70,11 @@ export const DEMOS = [
     title: "Shaders",
     description: "SDF Raymarch — a custom GLSL ShaderMaterial: per-pixel raymarched SDFs.",
   },
+  {
+    id: "postfx",
+    title: "PostFX",
+    description: "Multi-pass composer — SSAO + bloom + chromatic aberration + vignette + FXAA.",
+  },
 ].map((entry) => ({
   ...entry,
   // Resolve the module for the entry (default to the conventional path, or
