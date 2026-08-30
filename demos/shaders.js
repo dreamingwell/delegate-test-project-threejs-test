@@ -248,7 +248,7 @@ const FRAG = /* glsl */ `
 
     // background: vertical sky + faint starfield for depth
     vec3 bg = mix(vec3(0.03, 0.04, 0.07), vec3(0.10, 0.16, 0.28), 0.5 + 0.5 * rd.y);
-    float stars = step(0.997, hash11(dot(floor(rd * 320.0), 7.13))) * 0.4;
+    float stars = step(0.997, hash11(dot(floor(rd * 320.0), vec3(7.13)))) * 0.4;
     bg += vec3(stars) * (0.5 + 0.5 * rd.y);
 
     vec3 col;
