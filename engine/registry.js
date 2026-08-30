@@ -65,6 +65,11 @@ export const DEMOS = [
     title: "Instancing",
     description: "Shard Drift — 6,000 GPU-instanced shards in a single draw call.",
   },
+  {
+    id: "shaders",
+    title: "Shaders",
+    description: "SDF Raymarch — a custom GLSL ShaderMaterial: per-pixel raymarched SDFs.",
+  },
 ].map((entry) => ({
   ...entry,
   // Resolve the module for the entry (default to the conventional path, or
