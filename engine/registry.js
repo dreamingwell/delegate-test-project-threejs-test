@@ -60,6 +60,11 @@ export const DEMOS = [
     title: "Horizon",
     description: "Drift Fields — a crystal-shard horizon with formations + picking.",
   },
+  {
+    id: "instancing",
+    title: "Instancing",
+    description: "Shard Drift — 6,000 GPU-instanced shards in a single draw call.",
+  },
 ].map((entry) => ({
   ...entry,
   // Resolve the module for the entry (default to the conventional path, or
