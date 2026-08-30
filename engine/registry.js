@@ -75,6 +75,11 @@ export const DEMOS = [
     title: "PostFX",
     description: "Multi-pass composer — SSAO + bloom + chromatic aberration + vignette + FXAA.",
   },
+  {
+    id: "physics",
+    title: "Physics",
+    description: "Verlet cloth — a 252-point cloth drapes over a rigid ball-pit (5 spheres + box + floor).",
+  },
 ].map((entry) => ({
   ...entry,
   // Resolve the module for the entry (default to the conventional path, or
