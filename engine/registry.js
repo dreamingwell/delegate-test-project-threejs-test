@@ -1,23 +1,77 @@
 /**
- * The exact list of demos this gallery ships. Each entry:
- *   - id: used in deep links (#/demo/<id>) and as the dictionary key.
- *   - title: human-readable name shown in the gallery list.
- *   - module: path (relative to repo root) to the ES module implementing
- *     the demo contract: `export function init(container) { return { update, destroy }; }`.
+ * The manifest: the single, explicit list of demos this gallery ships.
  *
- * Adding a demo module file is the job of that demo's own card; this
- * registry entry is added ahead of time so the router/gallery never need
- * edits later. horizon's module does not exist yet (lands on #TJDG-7) —
- * that is expected; the router surfaces an import failure for it until then.
+ * CONTRACT — adding a demo is "drop a file + one manifest line":
+ *   1. Drop the demo's ES module at `../demos/<id>.js` (sibling `demos/`
+ *      directory next to this file).
+ *   2. Add ONE entry to the DEMOS array below: { id, title, description }.
+ *
+ * That is all. No edits to index.html, app.js, or router/router.js:
+ *   - index.html imports DEMOS and renders one gallery card per entry.
+ *   - router/router.js deep-links to `#/demo/<id>` and resolves the module
+ *     from <id> via the DEMOS entry.
+ *   - Engine.load(modulePath) imports the module and calls its exported
+ *     `init(container)` (see engine/Engine.js for the full contract).
+ *
+ * ENTRY FIELDS:
+ *   - id:          unique string; used as the deep-link path (`#/demo/<id>`),
+ *                  the module filename (`../demos/<id>.js`), and the
+ *                  dictionary key the router looks up.
+ *   - title:       human-readable name shown in the gallery list.
+ *   - description: one-line blurb shown under the title in the gallery card.
+ *   - module:      OPTIONAL. Defaults to `../demos/<id>.js`, resolved relative
+ *                  to THIS file (not the caller) so router.js can
+ *                  dynamic-import(demo.module) no matter where it lives. Set
+ *                  it only to point at a non-conventional path.
  */
-// Paths are resolved relative to this file (not the caller) so router.js can
-// dynamic-import(demo.module) regardless of which directory it lives in.
-export const DEMOS = [
-  { id: "frontier", title: "Frontier", module: new URL("../demos/frontier.js", import.meta.url).href },
-  { id: "local", title: "Local", module: new URL("../demos/local.js", import.meta.url).href },
-  { id: "horizon", title: "Horizon", module: new URL("../demos/horizon.js", import.meta.url).href },
-];
 
+/**
+ * Resolve a demo's module URL.
+ *
+ * Conventional form (preferred; do not override unless the demo lives
+ * somewhere other than `demos/<id>.js`): `../demos/<id>.js` relative to this
+ * file. new URL(..., import.meta.url) resolves it the same way it does in a
+ * browser and in Node, so the registry works in both.
+ *
+ * @param {string} id the demo id (filename stem under demos/).
+ * @returns {string} an absolute URL for the demo module.
+ */
+export function resolveModule(id) {
+  return new URL(`../demos/${id}.js`, import.meta.url).href;
+}
+
+/**
+ * The exact list of demos this gallery ships. Order here is the order the
+ * gallery cards appear.
+ */
+export const DEMOS = [
+  {
+    id: "frontier",
+    title: "Frontier",
+    description: "Stellar Drift — a warp-field particle galaxy you can orbit.",
+  },
+  {
+    id: "local",
+    title: "Local",
+    description: "Murmuration — a starling flock you herd with the mouse.",
+  },
+  {
+    id: "horizon",
+    title: "Horizon",
+    description: "Drift Fields — a crystal-shard horizon with formations + picking.",
+  },
+].map((entry) => ({
+  ...entry,
+  // Resolve the module for the entry (default to the conventional path, or
+  // keep an explicit override if one was given).
+  module: entry.module || resolveModule(entry.id),
+}));
+
+/**
+ * Look up a demo by id (the deep-link path segment).
+ * @param {string} id
+ * @returns {Object|null} the DEMOS entry for id, or null if not present.
+ */
 export function getDemo(id) {
   return DEMOS.find((d) => d.id === id) || null;
 }

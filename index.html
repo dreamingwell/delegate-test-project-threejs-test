@@ -101,7 +101,7 @@
       const a = document.createElement("a");
       a.className = "card";
       a.href = `#/demo/${demo.id}`;
-      a.innerHTML = `<h2>${demo.title}</h2><p>#/demo/${demo.id}</p>`;
+      a.innerHTML = `<h2>${demo.title}</h2><p>${demo.description || `#/demo/${demo.id}`}</p>`;
       grid.appendChild(a);
     }
 

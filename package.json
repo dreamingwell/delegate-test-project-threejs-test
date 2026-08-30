@@ -1,0 +1,13 @@
+{
+  "name": "threejs-lab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Three.js demo gallery: one shared engine + a manifest-driven registry (engine/registry.js). Zero build step — the site is static files + an import map + pinned three via unpkg (see index.html). This package.json exists only so the repo's .js files are valid ES modules for Node tooling (e.g. the verify/perf harnesses in verify/); the site never reads it.",
+  "scripts": {
+    "verify": "node verify/run.mjs"
+  },
+  "devDependencies": {
+    "three": "0.160.1"
+  }
+}
