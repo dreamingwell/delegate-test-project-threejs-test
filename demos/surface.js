@@ -2,17 +2,18 @@ import * as THREE from "three";
 import { BaseDemo } from "../engine/BaseDemo.js";
 
 /**
- * surface — "Materials Lab" (ANIMATED STUB for the Shell foundation card).
+ * surface — "Materials Lab".
  *
- * This is a placeholder that boots cleanly on the shared engine and exposes
- * the live-controls contract, so the Shell card's deep-link round-trip and
- * the shell video have a real, live demo to drag knobs on. It will be REPLACED
- * in full by the "surface" demo card — that card owns this file and rewrites
- * the body (one PBR object + a light rig; knobs for metalness, roughness,
- * light intensity, light color, bloom strength).
+ * One PBR torus-knot + a key/fill light rig, on the shared engine.
+ * SHOWCASE: the richest live-controls panel in the release.
  *
- * Engine contract: export init(container) -> { update, destroy }, plus an
- * optional handle.shell = { controls, appliedParams } the shell reads.
+ * Controls (all live onInput):
+ *   - metalness    (slider 0–1)
+ *   - roughness    (slider 0–1)
+ *   - lightIntensity (slider 0–4)
+ *   - lightColor   (select: cool / warm / neon)
+ *   - lightAngle   (slider 0–360°, key-light azimuth)
+ *   - spinSpeed    (slider 0–3, object rotation multiplier)
  */
 
 class Surface extends BaseDemo {
@@ -21,7 +22,7 @@ class Surface extends BaseDemo {
     scene.background = new THREE.Color(0x070a14);
     camera.position.set(0, 0, 6);
 
-    // One PBR object.
+    // PBR object.
     this.geo = new THREE.TorusKnotGeometry(1.3, 0.42, 128, 24);
     this.mat = new THREE.MeshStandardMaterial({
       color: 0x9fc4ff,
@@ -31,7 +32,7 @@ class Surface extends BaseDemo {
     this.mesh = new THREE.Mesh(this.geo, this.mat);
     scene.add(this.mesh);
 
-    // A light rig: a key directional light + a fill.
+    // Light rig: key directional + fill + ambient.
     this.key = new THREE.DirectionalLight(0xffffff, 1.6);
     this.key.position.set(3, 3, 4);
     scene.add(this.key);
@@ -39,18 +40,22 @@ class Surface extends BaseDemo {
     this.fill.position.set(-4, -2, 2);
     scene.add(this.fill);
     scene.add(new THREE.AmbientLight(0x223344, 0.4));
+    this.rot = 0; // accumulated rotation angle
 
-    // Live-control state (defaults; the shell applies URL values over these).
+    // Live-control state (defaults; shell applies URL values over these).
     this.state = {
       metalness: 0.4,
       roughness: 0.25,
       lightIntensity: 1.6,
       lightColor: "cool",
+      lightAngle: 45,
+      spinSpeed: 1.0,
     };
 
-    // Apply any URL-provided values over the defaults (deep-link round-trip).
+    // Apply URL params over defaults (deep-link round-trip).
     const pending = (engine._pendingUrlState && engine._pendingUrlState.params) || {};
     this.appliedParams = {};
+    this._controls = controls(this);
     const apply = (key, v) => {
       const spec = this._controls.find((c) => c.key === key);
       if (spec && v !== undefined && v !== "") {
@@ -58,14 +63,18 @@ class Surface extends BaseDemo {
         this.appliedParams[key] = v;
       }
     };
-    // controls() below closes over `this`; call it now to seed _controls.
-    this._controls = controls(this);
     for (const k of Object.keys(pending)) apply(k, pending[k]);
   }
 
-  update(_delta, elapsed) {
-    this.mesh.rotation.x = elapsed * 0.4;
-    this.mesh.rotation.y = elapsed * 0.6;
+  update(delta, _elapsed) {
+    // Delta-integrated so changing spinSpeed mid-run never causes a jump.
+    this.rot += delta * 0.6 * this.state.spinSpeed;
+    this.mesh.rotation.x = this.rot * 0.667;
+    this.mesh.rotation.y = this.rot;
+
+    // Keep key light at the current angle (idempotent; also set in onInput).
+    const rad = (this.state.lightAngle * Math.PI) / 180;
+    this.key.position.set(Math.sin(rad) * 5, 3, Math.cos(rad) * 5);
   }
 
   unmount() {
@@ -75,8 +84,8 @@ class Surface extends BaseDemo {
 }
 
 /**
- * The controls descriptor (the "knobs you turn while it's running" contract).
- * onInput is called LIVE, so dragging updates the scene immediately.
+ * Controls descriptor — the "knobs you turn while it's running" contract.
+ * onInput is called LIVE so the scene responds immediately.
  */
 function controls(demo) {
   return [
@@ -107,7 +116,7 @@ function controls(demo) {
     {
       type: "select",
       key: "lightColor",
-      label: "Light",
+      label: "Tint",
       options: [
         { label: "Cool", value: "cool" },
         { label: "Warm", value: "warm" },
@@ -119,6 +128,26 @@ function controls(demo) {
         demo.key.color.setHex(c);
         demo.state.lightColor = v;
       },
+    },
+    {
+      type: "slider",
+      key: "lightAngle",
+      label: "Angle",
+      min: 0, max: 360, step: 1,
+      value: demo.state.lightAngle,
+      onInput: (v) => {
+        demo.state.lightAngle = v;
+        const rad = (v * Math.PI) / 180;
+        demo.key.position.set(Math.sin(rad) * 5, 3, Math.cos(rad) * 5);
+      },
+    },
+    {
+      type: "slider",
+      key: "spinSpeed",
+      label: "Spin",
+      min: 0, max: 3, step: 0.1,
+      value: demo.state.spinSpeed,
+      onInput: (v) => { demo.state.spinSpeed = v; },
     },
   ];
 }
