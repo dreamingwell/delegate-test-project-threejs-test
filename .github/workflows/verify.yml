@@ -1,0 +1,58 @@
+# verify.yml — the REAL render gate, on every push to main.
+#
+# WHY THIS FILE EXISTS: the old proof was a stub GL context (verify/run.mjs),
+# which proves load/run/leak/registry but deliberately skips real rendering.
+# This runs a REAL headless browser (Playwright/Chromium) that, for every
+# demo in the registry, asserts it (1) boots with no uncaught error, (2)
+# renders a frame that is NOT blank, and (3) sustains a sensible frame rate
+# over a ~10s sample. It exits non-zero if ANY demo fails — that is what
+# makes it a gate.
+#
+# HONESTY (SwiftShader): the runner has no GPU. Chromium renders via
+# SwiftShader (software WebGL). The sustained-fps floor in render.mjs is a
+# LOW-BUT-REAL threshold (default 3 fps) that proves the scene is actually
+# animating, not frozen — it is a regression gate, NEVER a 60fps claim. The
+# per-demo table this produces is SwiftShader and must be reported as such.
+#
+# The site pulls `three` from unpkg.com (https), so the browser needs open
+# egress; the GitHub Actions runner has it. The harness serves the exact
+# committed checkout over a local static server (ES modules + import maps
+# cannot load over file://), so it tests what was just pushed, not the
+# possibly-lagging Pages deployment.
+
+name: verify
+
+on:
+  push:
+    branches: [ main ]
+  # Allow running it on demand from the UI while developing the gate itself.
+  workflow_dispatch: {}
+
+jobs:
+  render:
+    name: Real render gate (all demos)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      # Install Playwright (no-save: the gate is additive and must not mutate
+      # the repo's package.json / package-lock.json), then install the browser
+      # and its system dependencies. --with-deps runs apt-get for the libs the
+      # headless browser needs on this runner. This is the authoritative env:
+      # a real (x86_64) browser with SwiftShader software WebGL + internet.
+      - name: Install Playwright + Chromium (+ system deps)
+        run: |
+          npm install --no-save playwright@1.49.0
+          npx playwright install --with-deps chromium
+
+      # Run the real-render gate. Non-zero exit fails the build.
+      - name: Run real render harness (verify/render.mjs)
+        run: node verify/render.mjs
