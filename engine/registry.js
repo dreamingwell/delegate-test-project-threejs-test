@@ -80,6 +80,21 @@ export const DEMOS = [
     title: "Physics",
     description: "Verlet cloth — a 252-point cloth drapes over a rigid ball-pit (5 spheres + box + floor).",
   },
+  {
+    id: "surface",
+    title: "Surface",
+    description: "Materials Lab — one PBR object + a light rig; live knobs for metalness, roughness, light intensity, light color.",
+  },
+  {
+    id: "flow",
+    title: "Flow",
+    description: "Curl-Noise Flow Field — tens of thousands of advected particles; crank count and watch fps/triangles climb.",
+  },
+  {
+    id: "bloom",
+    title: "Bloom",
+    description: "Bloom Playground — a neon scene where Low/Med/High visibly change pixel ratio + bloom strength.",
+  },
 ].map((entry) => ({
   ...entry,
   // Resolve the module for the entry (default to the conventional path, or

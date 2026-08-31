@@ -63,6 +63,19 @@ export class Engine {
     this._loadToken = 0;
     this._currentDestroy = null;
 
+    // Frame-listener hook: extra per-frame callbacks run AFTER composer.render()
+    // each frame. Used by the shell's perf readout to sample the real
+    // renderer.info (post-render) and the real rAF clock (delta from this clock).
+    // Additive; an empty array means no-op, so existing callers are unaffected.
+    this._frameListeners = [];
+
+    // Real perf sample (honest, viewer's machine): fps from the rAF clock
+    // (delta-timing over a short window, exponential smoothing) and
+    // renderer.info render stats. Exposed via readPerfStats().
+    this._perfFps = 0;
+    this._perfAccum = 0;
+    this._perfFrames = 0;
+
     this._hudEnabled = !!hud;
     this._hudEl = null;
     this._hudAccum = 0;
@@ -108,6 +121,50 @@ export class Engine {
     this._listeners = [];
   }
 
+  /**
+   * Register a per-frame callback run AFTER composer.render() each frame.
+   * Used by the shell's perf readout to read the real renderer.info for the
+   * frame that just rendered, and to sample the real rAF clock (delta).
+   * Additive: a no-op when the array is empty; existing callers are untouched.
+   * @param {(delta: number) => void} fn
+   * @returns {() => void} a function that removes the callback.
+   */
+  onFrame(fn) {
+    this._frameListeners.push(fn);
+    return () => {
+      const i = this._frameListeners.indexOf(fn);
+      if (i !== -1) this._frameListeners.splice(i, 1);
+    };
+  }
+
+  /**
+   * Honest perf stats for the VIEWER's machine (never a claim about any other
+   * GPU). fps is from the real rAF clock (delta-timing over a short window,
+   * smoothed); draw calls + triangles are read straight from renderer.info
+   * after this frame's render (three resets info per render, so this is the
+   * just-rendered frame's value).
+   * @returns {{ fps: number, frameMs: number, calls: number, triangles: number }}
+   */
+  readPerfStats() {
+    const info = this.renderer.info.render;
+    return {
+      fps: this._perfFps,
+      frameMs: this._perfFps > 0 ? 1000 / this._perfFps : 0,
+      calls: info.calls,
+      triangles: info.triangles,
+    };
+  }
+
+  /** Real-clock fps: EMA over the rAF delta. No-op (no perf math) when no one
+   *  registered a frame listener, so default behaviour is unchanged. */
+  _tickPerf(delta) {
+    if (!this._frameListeners.length) return;
+    if (delta > 0) {
+      const inst = 1 / delta;
+      this._perfFps = this._perfFps === 0 ? inst : this._perfFps + (inst - this._perfFps) * 0.1;
+    }
+  }
+
   /** Start the render loop. cb(delta, elapsed) is called once per frame. */
   start(cb) {
     this._cb = cb;
@@ -118,6 +175,8 @@ export class Engine {
       const elapsed = this.clock.elapsedTime;
       if (this._cb) this._cb(delta, elapsed);
       this.composer.render();
+      this._tickPerf(delta);
+      for (const fn of this._frameListeners) fn(delta);
       this._tickHud(delta);
     };
     this.rafId = requestAnimationFrame(loop);
@@ -289,7 +348,8 @@ export class Engine {
     }
     if (myToken !== this._loadToken) return; // superseded by a newer load() while importing
     this.container.engine = this;
-    const { update, destroy } = mod.init(this.container);
+    const demoHandle = mod.init(this.container);
+    const { update, destroy } = demoHandle;
     if (myToken !== this._loadToken) {
       // A newer load() raced us while init() ran synchronously-but-late; tear
       // down what we just created instead of leaving it live.
@@ -300,6 +360,10 @@ export class Engine {
     this.start((delta, elapsed) => {
       if (typeof update === "function") update(delta, elapsed);
     });
+    // Return the demo's init() result so callers (the shell) can read an
+    // optional demo shell contract (controls descriptor / appliedParams).
+    // The router ignores this return value.
+    return demoHandle;
   }
 
   /**

@@ -73,6 +73,60 @@
   #back-link.hidden { display: none; }
   footer { margin-top: 4em; color: #6b7ba0; font-size: 0.85rem; text-align: center; }
   footer a { color: #8fd0ff; }
+  /* ---- shell chrome (the persistent app UI: nav + name + controls) ---- */
+  #shell { position: fixed; top: 0; left: 0; right: 0; z-index: 9000; }
+  .shell-bar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 8px 14px;
+    background: linear-gradient(180deg, rgba(8,12,28,0.97), rgba(8,12,28,0.85));
+    border-bottom: 1px solid rgba(140,180,255,0.18);
+    backdrop-filter: blur(8px);
+  }
+  .shell-brand { font-weight: 700; font-size: 15px; color: #dff0ff; text-decoration: none; letter-spacing: .2px; }
+  .shell-name-wrap { display: flex; align-items: baseline; gap: 8px; margin-left: 4px; }
+  .shell-name-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: #6b7ba0; }
+  .shell-name { font-size: 15px; color: #ffe9a8; font-weight: 600; }
+  .shell-right { margin-left: auto; display: flex; align-items: center; gap: 14px; }
+  .shell-qwrap { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9fb3d6; }
+  .shell-quality, .shell-perf {
+    background: rgba(255,255,255,0.06); color: #dff0ff;
+    border: 1px solid rgba(140,180,255,0.25); border-radius: 8px;
+    padding: 4px 8px; font-size: 12px; cursor: pointer;
+  }
+  .shell-perf.on { border-color: #8fd0ff; color: #fff; box-shadow: 0 0 10px rgba(80,160,255,0.4); }
+  .shell-nav {
+    display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 14px;
+    background: rgba(8,12,28,0.62); border-bottom: 1px solid rgba(140,180,255,0.10);
+  }
+  .shell-nav-item {
+    font-size: 12px; color: #a6b8dc; text-decoration: none;
+    padding: 3px 10px; border-radius: 12px; border: 1px solid transparent;
+  }
+  .shell-nav-item:hover { color: #fff; border-color: rgba(140,180,255,0.3); }
+  .shell-nav-item.active { color: #fff; background: rgba(80,140,255,0.22); border-color: rgba(140,180,255,0.5); }
+  .shell-panel {
+    position: fixed; right: 14px; top: 92px; width: 250px;
+    max-height: calc(100vh - 120px); overflow: auto;
+    background: linear-gradient(160deg, rgba(16,22,48,0.94), rgba(10,14,30,0.9));
+    border: 1px solid rgba(140,180,255,0.25); border-radius: 12px;
+    padding: 10px 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+  .shell-panel-head { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: #8fd0ff; margin-bottom: 8px; }
+  .shell-panel-body .ctl-row { display: flex; align-items: center; gap: 8px; margin: 7px 0; }
+  .ctl-label { font-size: 12px; color: #cfe0ff; min-width: 64px; }
+  .ctl-val { font-size: 11px; color: #8fd0ff; min-width: 34px; text-align: right; font-family: monospace; }
+  .shell-panel-body input[type="range"] { accent-color: #8fd0ff; }
+  .shell-panel-body select { background: rgba(255,255,255,0.06); color: #dff0ff; border: 1px solid rgba(140,180,255,0.25); border-radius: 8px; padding: 4px 8px; font-size: 12px; }
+  .ctl-btn { background: rgba(255,255,255,0.06); color: #dff0ff; border: 1px solid rgba(140,180,255,0.25); border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .ctl-empty { font-size: 12px; color: #6b7ba0; font-style: italic; }
+  #perf-readout {
+    position: fixed; bottom: 12px; left: 14px; z-index: 9500;
+    background: rgba(0,0,0,0.62); color: #8fd0ff;
+    font: 12px/1.4 monospace; padding: 6px 10px; border-radius: 8px;
+    border: 1px solid rgba(140,180,255,0.25);
+  }
+  /* The shell nav supersedes the old floating "back to demos" link. */
+  #back-link { display: none !important; }
 </style>
 <script type="importmap">
 {

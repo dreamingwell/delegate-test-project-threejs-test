@@ -21,12 +21,22 @@ export class Router {
     this.onMessage = onMessage || (() => {});
     this.currentId = null;
     this._navToken = 0;
+    // The full hash we last loaded. Used to detect a query-only change on the
+    // same demo (e.g. a pasted deep link with different params) and reload so
+    // the URL's state is applied. The shell's own live serialization uses
+    // history.replaceState (no hashchange), so dragging a slider does NOT
+    // trigger a reload here — only a real URL change does.
+    this._lastHash = location.hash;
     this._onHashChange = () => this.navigate();
     addEventListener("hashchange", this._onHashChange);
   }
 
   parseHash() {
-    const m = location.hash.match(/^#\/demo\/([^/]+)\/?$/);
+    // Tolerate a query string on the id: #/demo/<id>?<...> still resolves to
+    // <id>. (The shell's urlstate.js owns the query; the router only needs
+    // the id to route. Stopping at ?/# so `#/demo/surface?metalness=0.7`
+    // still yields `surface`.)
+    const m = location.hash.match(/^#\/demo\/([^/?#]+)/);
     return m ? decodeURIComponent(m[1]) : null;
   }
 
@@ -37,6 +47,7 @@ export class Router {
     if (!id) {
       this.engine.unload();
       this.currentId = null;
+      this._lastHash = location.hash;
       this.onMessage("Pick a demo: " + DEMOS.map((d) => `#/demo/${d.id}`).join(", "));
       return;
     }
@@ -45,11 +56,16 @@ export class Router {
     if (!demo) {
       this.engine.unload();
       this.currentId = null;
+      this._lastHash = location.hash;
       this.onMessage(`Unknown demo "${id}". Available: ${DEMOS.map((d) => d.id).join(", ")}`);
       return;
     }
 
-    if (id === this.currentId) return;
+    // Same demo AND the query is unchanged -> nothing to do (and a slider
+    // drag, which serializes via replaceState, never got here in the first
+    // place). Same demo but a DIFFERENT query (a pasted deep link with new
+    // params) -> reload so the URL's params re-apply over the defaults.
+    if (id === this.currentId && this._lastHash === location.hash) return;
 
     try {
       await this.engine.load(demo.module);
@@ -63,6 +79,7 @@ export class Router {
 
     if (myToken !== this._navToken) return; // a newer navigation superseded this one
     this.currentId = id;
+    this._lastHash = location.hash;
     this.onMessage("");
   }
 
