@@ -43,7 +43,8 @@
  * what makes this a gate wired into CI (see .github/workflows/verify.yml).
  */
 
-import { readFileSync, existsSync, createServer, statSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
+import { createServer } from "node:http";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import os from "node:os";
