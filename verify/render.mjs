@@ -114,13 +114,42 @@ async function measureDemo(page, seconds) {
     const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
     // Live WebGL context + engine reachability.
+    // IMPORTANT: do NOT call getContext() here. The engine already created a
+    // WebGL2 context on this canvas (three r160 targets WebGL2). Calling
+    // getContext("webgl") on a canvas that already holds a WebGL2 context
+    // returns null (the type is pinned to the first context created) and, in
+    // some Chromium builds, can hand out a competing context — either way the
+    // detection reads false and the boot check fails spuriously. So we only
+    // *detect* whether a live context exists: get the 2d context (returns
+    // non-null only if no WebGL context is active), otherwise the canvas is
+    // WebGL-backed.
     const canvas = document.querySelector("#app canvas");
-    const gl = canvas ? (canvas.getContext("webgl") || canvas.getContext("experimental-webgl")) : null;
-
-    // Non-blank: read the real rendered pixels. A cleared/blank canvas has
-    // near-zero channel variance; a drawn scene does not.
-    let nonBlank = false;
+    let contextExists = false;
     if (canvas && canvas.width > 0 && canvas.height > 0) {
+      try {
+        const had2d = !!canvas.getContext("2d"); // non-null ⇒ no WebGL context
+        contextExists = !had2d;
+      } catch { contextExists = true; }
+    }
+
+    // Non-blank + fps: measure everything INSIDE the rAF callback.
+    //
+    // Why inside rAF: with the default preserveDrawingBuffer:false, the WebGL
+    // drawing buffer is cleared by the compositor right after each frame is
+    // presented. Reading pixels from a normal (macrotask/microtask) callback
+    // therefore sees a blank buffer — even when the scene is rendering
+    // perfectly. The only moment the buffer is guaranteed live is inside the
+    // same rAF callback in which three.js just called gl.render(). So we do
+    // the pixel sample here, once the frame window has elapsed.
+    let frames = 0;
+    let maxVar = 0;
+    const t0 = performance.now();
+
+    // Read pixels from the engine's live canvas and return mean channel
+    // variance. A cleared/blank canvas is near-constant (variance ~0); a
+    // drawn scene is not. MUST be called while the drawing buffer is live —
+    // i.e. right after the frame rendered.
+    const sampleVariance = () => {
       try {
         const w = Math.min(canvas.width, 256);
         const h = Math.min(canvas.height, 256);
@@ -138,30 +167,50 @@ async function measureDemo(page, seconds) {
           n++;
         }
         const sd = (s, s2) => Math.sqrt(Math.max(0, s2 / n - (s / n) ** 2));
-        const stdR = sd(sumR, sumR2), stdG = sd(sumG, sumG2), stdB = sd(sumB, sumB2);
-        // A scene with any rendered geometry/material has channel variance;
-        // a blank cleared canvas is effectively constant. Threshold ~4/255.
-        nonBlank = (stdR + stdG + stdB) / 3 > 4;
-      } catch { nonBlank = false; }
+        return (sd(sumR, sumR2) + sd(sumG, sumG2) + sd(sumB, sumB2)) / 3;
+      } catch { return 0; }
+    };
+
+    // The engine fires onFrame AFTER composer.render() each frame, so the
+    // drawing buffer is guaranteed live there. Sample a few frames near the
+    // end of the window and keep the strongest read (robust to a single
+    // blank/transition frame).
+    const eng = document.getElementById("app") && document.getElementById("app").engine;
+    let removeFrame = null;
+    let captured = 0;
+    if (eng && typeof eng.onFrame === "function") {
+      removeFrame = eng.onFrame(() => {
+        if (performance.now() - t0 >= (seconds - 1.5) * 1000) {
+          maxVar = Math.max(maxVar, sampleVariance());
+          captured++;
+          if (captured >= 3) removeFrame();
+        }
+      });
     }
 
     // Sustained fps: count real animation frames over the sample window.
-    let frames = 0;
-    const t0 = performance.now();
     const count = () => {
       frames++;
-      if (performance.now() - t0 < seconds * 1000) requestAnimationFrame(count);
-      else {
-        const fps = frames / ((performance.now() - t0) / 1000);
-        // Read the live engine's real renderer.info for the just-rendered frame.
-        const eng = document.getElementById("app") && document.getElementById("app").engine;
-        const info = eng && eng.renderer ? eng.renderer.info.render : null;
+      const elapsed = (performance.now() - t0) / 1000;
+      if (elapsed < seconds) {
+        requestAnimationFrame(count);
+      } else {
+        const fps = frames / elapsed;
+        // Fallback pixel read if the onFrame hook was unavailable: this rAF
+        // callback runs in the same batch as the engine's render, so the
+        // buffer is still live here.
+        if (captured === 0) maxVar = sampleVariance();
+        if (removeFrame) { removeFrame(); removeFrame = null; }
+        const info = (eng && eng.renderer) ? eng.renderer.info.render : null;
+        // A scene with any rendered geometry/material has channel variance;
+        // a blank cleared canvas is effectively constant. Threshold ~4/255.
         window.__measure = {
           frames,
           fps,
-          seconds: (performance.now() - t0) / 1000,
-          nonBlank,
-          webgl: !!gl,
+          seconds: elapsed,
+          nonBlank: maxVar > 4,
+          maxVar: Math.round(maxVar * 100) / 100,
+          webgl: contextExists,
           canvas: !!canvas,
           drawCalls: info ? info.calls : null,
           triangles: info ? info.triangles : null,
@@ -198,6 +247,7 @@ async function checkDemo(context, base, demo) {
     result.webgl = m.webgl;
     result.canvas = m.canvas;
     result.nonBlank = m.nonBlank;
+    result.maxVar = m.maxVar;
     result.fps = Math.round(m.fps * 10) / 10;
     result.drawCalls = m.drawCalls;
     result.triangles = m.triangles;
@@ -263,7 +313,7 @@ const main = async () => {
       const err = r.pageErrors[0] || r.bootError || (r.consoleErrors[0] || "");
       console.log(
         `  [${status}] ${r.id.padEnd(11)} booted=${r.booted ? "y" : "n"}  non-blank=${r.nonBlank ? "y" : "n"}  ` +
-        `fps=${String(r.fps).padStart(6)}  draws=${String(r.drawCalls ?? "?").padStart(6)}  tris=${String(r.triangles ?? "?").padStart(9)}${err ? "  | err: " + err.slice(0, 90) : ""}`
+        `fps=${String(r.fps).padStart(6)}  draws=${String(r.drawCalls ?? "?").padStart(6)}  tris=${String(r.triangles ?? "?").padStart(9)}  var=${String(r.maxVar ?? "?").padStart(6)}${err ? "  | err: " + err.slice(0, 90) : ""}`
       );
     }
   } finally {
