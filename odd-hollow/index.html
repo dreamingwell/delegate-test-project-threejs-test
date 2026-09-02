@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Odd Hollow — House Program</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #0e1116; }
+    #hud {
+      position: fixed; left: 12px; top: 12px; max-width: 520px; color: #d8e0ea;
+      font: 13px/1.5 ui-monospace, Menlo, monospace;
+      background: rgba(0,0,0,.35); padding: 8px 10px; border-radius: 6px;
+      pointer-events: none; user-select: none;
+    }
+    #hud .prompt { margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.18); color: #ffe9c9; }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div><b>Odd Hollow — House Program</b></div>
+    <div>WASD move &middot; click to look &middot; E examine &middot; F do it</div>
+    <div class="prompt"></div>
+  </div>
+  <script src="./main.bundle.js"></script>
+</body>
+</html>
